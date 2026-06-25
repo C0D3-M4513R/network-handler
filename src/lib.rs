@@ -1,7 +1,7 @@
 #![cfg_attr(not(feature = "tokio"), no_std)]
 
 extern crate alloc;
-pub(crate) use alloc::{vec::Vec, vec, boxed::Box};
+pub(crate) use alloc::{vec::Vec, boxed::Box};
 
 pub mod handlers;
 

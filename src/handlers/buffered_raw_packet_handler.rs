@@ -53,7 +53,7 @@ impl<H: crate::RawPacketHandler> ArbitraryHandler<&'_ [u8]> for BufferedRawPacke
                     log::error!("Buffer grew whilst parsing?");
                 }
                 self.prev_buffer.extend_from_slice(buf);
-                std::mem::swap(&mut self.buffer, &mut self.prev_buffer);
+                core::mem::swap(&mut self.buffer, &mut self.prev_buffer);
                 return res;
             }
 
