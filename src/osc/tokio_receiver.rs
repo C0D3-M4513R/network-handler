@@ -43,14 +43,33 @@ impl<I1, I2, I3> OscReceiver<I1, I2, I3> {
             }
         };
         log::info!("Bound OSC UDP receive Socket.");
-        Ok(Self{
+        Ok(Self::new_with_socket(
             osc_recv,
+            max_message_size,
+            poll_duration,
+            message_handlers,
+            packet_handlers,
+            raw_packet_handlers,
+        ))
+    }
+
+    /// Creates a new OSC Sender from an already bound socket
+    pub fn new_with_socket(
+        socket:tokio::net::UdpSocket,
+        max_message_size: Option<NonZeroUsize>,
+        poll_duration: Option<Duration>,
+        message_handlers: I1,
+        packet_handlers: I2,
+        raw_packet_handlers: I3,
+    ) -> Self{
+        Self{
+            osc_recv: socket,
             max_message_size,
             poll_duration: poll_duration.unwrap_or(Duration::from_secs(1)),
             message_handlers,
             packet_handlers,
             raw_packet_handlers,
-        })
+        }
     }
 }
 
