@@ -13,11 +13,11 @@ impl<T> OscHandler<T> {
         }
     }
 }
-impl<O: Send, I: Clone, T:ArbitraryHandler<I, Output = O>> ArbitraryHandler<I> for OscHandler<T> {
+impl<O: Send, M: Clone, I:Clone, T:ArbitraryHandler<M, I, Output = O>> ArbitraryHandler<M, I> for OscHandler<T> {
     type Output = crate::Vec<O>;
-    fn handle(&mut self, message: I) -> Self::Output {
+    fn handle(&mut self, message: M, extra_info: I) -> Self::Output {
         self.handlers.iter_mut()
-            .map(|handler|handler.handle(message.clone()))
+            .map(|handler|handler.handle(message.clone(), extra_info.clone()))
             .collect()
     }
 }

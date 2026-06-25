@@ -34,16 +34,16 @@ impl<H> BufferedRawPacketHandler<H> {
     }
 }
 
-impl<H: crate::RawPacketHandler> ArbitraryHandler<&'_ [u8]> for BufferedRawPacketHandler<H> {
+impl<I:Clone, H: crate::RawPacketHandler<I>> ArbitraryHandler<&'_ [u8], I> for BufferedRawPacketHandler<H> {
     type Output = crate::Vec<H::Output>;
 
-    fn handle(&mut self, message: &'_ [u8]) -> Self::Output {
+    fn handle(&mut self, message: &'_ [u8], extra_info: I) -> Self::Output {
         self.prev_buffer.clear();
         self.buffer.extend_from_slice(message);
         let mut buf = self.buffer.as_slice();
         let mut res = crate::Vec::new();
         loop {
-            let (r, fut) = self.handler.handle(buf);
+            let (r, fut) = self.handler.handle(buf, extra_info.clone());
             res.push(fut);
 
             //If the last call did not process any bytes, assume we are done for now.
@@ -67,7 +67,7 @@ impl<H: crate::RawPacketHandler> ArbitraryHandler<&'_ [u8]> for BufferedRawPacke
         }
     }
 }
-impl<H: crate::RawPacketHandler + crate::PeriodicParsingCheck> crate::PeriodicParsingCheck for BufferedRawPacketHandler<H> {
+impl<H: crate::PeriodicParsingCheck> crate::PeriodicParsingCheck for BufferedRawPacketHandler<H> {
     type CheckOutput = H::CheckOutput;
     #[inline]
     fn needs_check(&self) -> bool { self.handler.needs_check() }

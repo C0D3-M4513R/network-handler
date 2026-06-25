@@ -8,6 +8,7 @@ use std::sync::{Arc, Mutex};
 use crate::{ArbitraryHandler, PeriodicParsingCheck};
 use crate::handlers::osc::raw_packet_handler::RawPacketHandler;
 use crate::handlers::buffered_raw_packet_handler::BufferedRawPacketHandler;
+use crate::handlers::clone_info::CloneInfo;
 use crate::handlers::combined_handler::{CombinedHandler, CombinedRefHandler};
 use crate::handlers::osc::packet_handler::PacketHandler;
 
@@ -78,12 +79,12 @@ pub struct OutThreads{
     pub check: std::thread::JoinHandle<core::convert::Infallible>,
 }
 
-type Handler<H1, H2, H3> = CombinedHandler<H3, BufferedRawPacketHandler<RawPacketHandler<CombinedRefHandler<PacketHandler<H1>, H2>>>>;
+type Handler<'a, H1, H2, H3> = CombinedHandler<H3, BufferedRawPacketHandler<RawPacketHandler<CombinedRefHandler<CloneInfo<PacketHandler<H1, core::net::SocketAddr>>, H2>>>>;
 impl<
     O1, O3,
-    H1:for<'a> ArbitraryHandler<&'a [&'a rosc::OscMessage], Output =O1> + Sync + Send + 'static,
-    H2:ArbitraryHandler<rosc::OscPacket> + PeriodicParsingCheck + Sync + Send + 'static,
-    H3:for<'a> crate::ArbitraryHandler<&'a [u8], Output = O3> + PeriodicParsingCheck + Sync + Send + 'static,
+    H1:for<'a> ArbitraryHandler<&'a [&'a rosc::OscMessage], core::net::SocketAddr, Output =O1> + Sync + Send + 'static,
+    H2:ArbitraryHandler<rosc::OscPacket, core::net::SocketAddr> + PeriodicParsingCheck + Sync + Send + 'static,
+    H3:for<'a> crate::ArbitraryHandler<&'a [u8], core::net::SocketAddr, Output = O3> + PeriodicParsingCheck + Sync + Send + 'static,
 > OscReceiver<H1, H2, H3> {
     pub fn listen<
         Iter: Iterator<Item = rosc::OscError> + Send
@@ -94,8 +95,9 @@ impl<
             Arc<Mutex<Handler<H1, H2, H3>>>,
         ) + Send + 'static,
         mut packet_handler: impl FnMut(
-            <Handler<H1, H2, H3> as ArbitraryHandler<&[u8]>>::Output,
+            <Handler<H1, H2, H3> as ArbitraryHandler<&[u8], core::net::SocketAddr>>::Output,
             Arc<Mutex<Handler<H1, H2, H3>>>,
+            core::net::SocketAddr,
         ) -> Iter + Send + 'static,
     ) -> OutThreads {
         let Self {
@@ -112,10 +114,10 @@ impl<
                 raw_packet_handlers,
                 BufferedRawPacketHandler::new(
                     RawPacketHandler::new(
-                        CombinedRefHandler::new(
+                        CombinedRefHandler::new(CloneInfo(
                             PacketHandler::new(
                                 message_handlers
-                            ),
+                            )),
                             packet_handlers,
                         )
                     ),
@@ -154,21 +156,18 @@ impl<
 
             loop {
                 buf.clear(); //This is strictly an Udp byte receive buffer. Additional Packet Parsing buffers exist further down the stack.
-                let out = osc_recv.recv(&mut buf);
+                let out = osc_recv.recv_from(&mut buf);
                 match out {
                     Err(e) => {
                         log::error!("Error receiving udp packet. Discarding receive Buffer. Skipping Packet: {}",e);
-                        if !buf.is_empty() {
-                            let res = lock().handle(buf.as_slice());
-                            packet_handler(res, handler.clone());
-                        }
+                        buf.clear();
                     }
-                    Ok(_) => {
+                    Ok((_, addr)) => {
                         let len;
                         let iter;
                         {
                             let mut lock = lock();
-                            iter = packet_handler(lock.handle(buf.as_slice()), handler.clone());
+                            iter = packet_handler(lock.handle(buf.as_slice(), addr), handler.clone(), addr);
                             len = lock.handler2.get_buffer().len();
                         }
 

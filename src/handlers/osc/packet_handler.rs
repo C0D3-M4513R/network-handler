@@ -1,20 +1,20 @@
 use crate::ArbitraryHandler;
 
 pub mod key_value;
-type InnerBuf = key_value::KeyValue<time::UtcDateTime,rosc::OscBundle>;
-type Buf = sorted_vec::ReverseSortedVec<InnerBuf>;
+type InnerBuf<I> = key_value::KeyValue<time::UtcDateTime,(rosc::OscBundle, I)>;
+type Buf<I> = sorted_vec::ReverseSortedVec<InnerBuf<I>>;
 
 ///Wrap a [crate::MessageHandler] into a [crate::PeriodicParsingCheck].
 ///
 /// Note, that the [Self::check] function MUST be called regularly, if not-yet-applied [Osc Bundles][rosc::OscBundle] should be applied at all.
 /// The polling
 #[derive(Debug)]
-pub struct PacketHandler<H>{
-    bundle_buf: Buf,
+pub struct PacketHandler<H, I>{
+    bundle_buf: Buf<I>,
     pub handler: H,
 }
 
-impl<H> PacketHandler<H> {
+impl<H, I> PacketHandler<H, I> {
     ///Create a new [PacketHandler]
     pub const fn new(handler: H) -> Self {
         Self {
@@ -22,13 +22,13 @@ impl<H> PacketHandler<H> {
             handler,
         }
     }
-    pub const fn get_buf(&self) -> &Buf {
+    pub const fn get_buf(&self) -> &Buf<I> {
         &self.bundle_buf
     }
 }
-impl<O, H: for<'a> ArbitraryHandler<&'a [&'a rosc::OscMessage], Output = O>> PacketHandler<H> {
-    fn apply_bundle(&mut self, bundle: &rosc::OscBundle) -> Result<crate::Vec<O>, time::UtcDateTime> {
-        let bundle = match self.should_handle_bundle(bundle) {
+impl<O, I: Clone, H: for<'a> ArbitraryHandler<&'a [&'a rosc::OscMessage], I, Output = O>> PacketHandler<H, I> {
+    fn apply_bundle(&mut self, bundle: &rosc::OscBundle, extra_info: &I) -> Result<crate::Vec<O>, time::UtcDateTime> {
+        let bundle = match self.should_handle_bundle(bundle, &extra_info) {
             Ok(bundle) => bundle,
             Err(date_time) => return Err(date_time),
         };
@@ -45,7 +45,7 @@ impl<O, H: for<'a> ArbitraryHandler<&'a [&'a rosc::OscMessage], Output = O>> Pac
                         msgs.push(msg);
                     }
                     rosc::OscPacket::Bundle(bundle) => {
-                        let bundle = match self.should_handle_bundle(bundle) {
+                        let bundle =  match self.should_handle_bundle(bundle, &extra_info) {
                             Ok(bundle) => bundle,
                             Err(_) => continue,
                         };
@@ -53,13 +53,13 @@ impl<O, H: for<'a> ArbitraryHandler<&'a [&'a rosc::OscMessage], Output = O>> Pac
                     }
                 }
             }
-            bundles.push(self.handler.handle(msgs.as_slice()));
+            bundles.push(self.handler.handle(msgs.as_slice(), extra_info.clone()));
             msgs.clear();
         }
 
         Ok(bundles)
     }
-    fn should_handle_bundle<'a>(&mut self, bundle: &'a rosc::OscBundle) -> Result<&'a rosc::OscBundle, time::UtcDateTime> {
+    fn should_handle_bundle<'a>(&mut self, bundle: &'a rosc::OscBundle, extra_info: &I) -> Result<&'a rosc::OscBundle, time::UtcDateTime> {
         if bundle.timetag.seconds == 0 && bundle.timetag.fractional == 1{
             return Ok(bundle);
         }
@@ -78,29 +78,29 @@ impl<O, H: for<'a> ArbitraryHandler<&'a [&'a rosc::OscMessage], Output = O>> Pac
         if time::UtcDateTime::now() > date_time {
             Ok(bundle)
         }else{
-            self.bundle_buf.push(core::cmp::Reverse(InnerBuf::new(date_time, bundle.clone())));
+            self.bundle_buf.push(core::cmp::Reverse(InnerBuf::new(date_time, (bundle.clone(), extra_info.clone()))));
             Err(date_time)
         }
     }
 }
 
-impl<O, H: for<'a> ArbitraryHandler<&'a [&'a rosc::OscMessage], Output = O>> ArbitraryHandler<&rosc::OscPacket> for PacketHandler<H> {
+impl<O, I:Clone, H: for<'a> ArbitraryHandler<&'a [&'a rosc::OscMessage], I, Output = O>> ArbitraryHandler<&rosc::OscPacket, I> for PacketHandler<H, I> {
     type Output = Result<crate::Vec<O>, time::UtcDateTime>;
-    fn handle(&mut self, message: &rosc::OscPacket) -> Self::Output {
+    fn handle(&mut self, message: &rosc::OscPacket, extra_info: I) -> Self::Output {
         match message {
             rosc::OscPacket::Message(msg) => {
                 #[cfg(all(debug_assertions, feature = "debug_log"))]
                 log::trace!("Got a OSC Packet: {}: {:?}", msg.addr, msg.args);
-                Ok(alloc::vec![self.handler.handle(&[msg])])
+                Ok(alloc::vec![self.handler.handle(&[msg], extra_info)])
             }
             rosc::OscPacket::Bundle(bundle) => {
-                self.apply_bundle(bundle)
+                self.apply_bundle(bundle, &extra_info)
             }
         }
     }
 }
-impl<O, H: for<'a> ArbitraryHandler<&'a [&'a rosc::OscMessage], Output = O>> crate::PeriodicParsingCheck for PacketHandler<H> {
-    type CheckOutput = Vec<Vec<O>>;
+impl<O, I:Clone, H: for<'a> ArbitraryHandler<&'a [&'a rosc::OscMessage], I, Output = O>> crate::PeriodicParsingCheck for PacketHandler<H, I> {
+    type CheckOutput = Vec<(Vec<O>, I)>;
     fn needs_check(&self) -> bool { !self.bundle_buf.is_empty() }
     fn check(&mut self) -> Self::CheckOutput {
         let now = time::UtcDateTime::now();
@@ -117,9 +117,9 @@ impl<O, H: for<'a> ArbitraryHandler<&'a [&'a rosc::OscMessage], Output = O>> cra
 
         let mut res = crate::Vec::with_capacity(to_apply.len());
         for i in to_apply {
-            match self.apply_bundle(&i.value) {
+            match self.apply_bundle(&i.value.0, &i.value.1) {
                 Err(_) => continue,
-                Ok(v) => res.push(v),
+                Ok(v) => res.push((v, i.value.1)),
             }
         }
         res

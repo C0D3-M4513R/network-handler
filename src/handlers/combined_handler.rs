@@ -12,16 +12,17 @@ impl<H1, H2> CombinedHandler<H1, H2> {
     }
 }
 
-impl<I, H1, H2> ArbitraryHandler<I> for CombinedHandler<H1, H2>
+impl<M, I, H1, H2> ArbitraryHandler<M, I> for CombinedHandler<H1, H2>
 where
+    M: Clone,
     I: Clone,
-    H1: ArbitraryHandler<I>,
-    H2: ArbitraryHandler<I>
+    H1: ArbitraryHandler<M, I>,
+    H2: ArbitraryHandler<M, I>
 {
     type Output = (H1::Output, H2::Output);
 
-    fn handle(&mut self, message: I) -> Self::Output {
-        (self.handler1.handle(message.clone()), self.handler2.handle(message))
+    fn handle(&mut self, message: M, extra_info: I) -> Self::Output {
+        (self.handler1.handle(message.clone(), extra_info.clone()), self.handler2.handle(message, extra_info))
     }
 }
 impl<H1, H2> crate::PeriodicParsingCheck for CombinedHandler<H1, H2>
@@ -53,15 +54,15 @@ impl<H1, H2> CombinedRefHandler<H1, H2> {
 }
 
 
-impl<I, O1, H1, H2> ArbitraryHandler<I> for CombinedRefHandler<H1, H2>
+impl<M, I, O1, H1, H2> ArbitraryHandler<M, I> for CombinedRefHandler<H1, H2>
 where
-    H1: for<'a> ArbitraryHandler<&'a I, Output = O1>,
-    H2: ArbitraryHandler<I>
+    H1: for<'a> ArbitraryHandler<&'a M, &'a I, Output = O1>,
+    H2: ArbitraryHandler<M, I>
 {
     type Output = (O1, H2::Output);
 
-    fn handle(&mut self, message: I) -> Self::Output {
-        (self.handler1.handle(&message), self.handler2.handle(message))
+    fn handle(&mut self, message: M, extra_info: I) -> Self::Output {
+        (self.handler1.handle(&message, &extra_info), self.handler2.handle(message, extra_info))
     }
 }
 impl<H1, H2> crate::PeriodicParsingCheck for CombinedRefHandler<H1, H2>

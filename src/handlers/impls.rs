@@ -1,16 +1,16 @@
 use crate::{ArbitraryHandler, PeriodicParsingCheck, RawPacketHandler};
 
 //<editor-fold desc="Implementations for Option">
-impl<O, I, T:ArbitraryHandler<I, Output = O>> ArbitraryHandler<I> for Option<T> {
+impl<O, M, I, T:ArbitraryHandler<M, I, Output = O>> ArbitraryHandler<M, I> for Option<T> {
     type Output = Option<O>;
-    fn handle(&mut self, message: I) -> Self::Output {
-        self.as_mut().map(|v|v.handle(message))
+    fn handle(&mut self, message: M, extra_info: I) -> Self::Output {
+        self.as_mut().map(|v|v.handle(message, extra_info))
     }
 }
-impl<O, T:RawPacketHandler<Output = O>> RawPacketHandler for Option<T> {
+impl<O, I, T:RawPacketHandler<I, Output = O>> RawPacketHandler<I> for Option<T> {
     type Output = Option<O>;
-    fn handle<'a>(&mut self, message: &'a [u8]) -> (&'a [u8], Self::Output) {
-        self.as_mut().map(|v|v.handle(message)).map_or((&[], None), |(r, v)|(r, Some(v)))
+    fn handle<'a>(&mut self, message: &'a [u8], extra_info: I) -> (&'a [u8], Self::Output) {
+        self.as_mut().map(|v|v.handle(message, extra_info)).map_or((&[], None), |(r, v)|(r, Some(v)))
     }
 }
 impl<T: PeriodicParsingCheck> PeriodicParsingCheck for Option<T> {
@@ -22,13 +22,13 @@ impl<T: PeriodicParsingCheck> PeriodicParsingCheck for Option<T> {
 }
 //</editor-fold>
 //<editor-fold desc="Implementations for Infallible">
-impl<T> ArbitraryHandler<T> for core::convert::Infallible {
+impl<T, I> ArbitraryHandler<T, I> for core::convert::Infallible {
     type Output = core::convert::Infallible;
-    fn handle(&mut self, _: T) -> Self::Output { *self }
+    fn handle(&mut self, _: T, _:I) -> Self::Output { *self }
 }
-impl crate::RawPacketHandler for core::convert::Infallible {
+impl<I> crate::RawPacketHandler<I> for core::convert::Infallible {
     type Output = core::convert::Infallible;
-    fn handle(&mut self, _: &'_[u8]) -> (&'static[u8], Self::Output) { (&[], *self) }
+    fn handle(&mut self, _: &'_[u8], _:I) -> (&'static[u8], Self::Output) { (&[], *self) }
 }
 impl PeriodicParsingCheck for core::convert::Infallible {
     type CheckOutput = core::convert::Infallible;

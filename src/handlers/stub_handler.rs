@@ -4,10 +4,10 @@ use crate::{ArbitraryHandler, PeriodicParsingCheck};
 #[derive(Debug, Copy, Clone)]
 pub struct StubHandler;
 
-impl<T> ArbitraryHandler<T> for StubHandler {
+impl<T, I> ArbitraryHandler<T, I> for StubHandler {
     type Output = ();
 
-    fn handle(&mut self, _: T) -> Self::Output { () }
+    fn handle(&mut self, _: T, _:I) -> Self::Output { () }
 }
 impl PeriodicParsingCheck for StubHandler {
     type CheckOutput = ();
