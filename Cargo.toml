@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 categories = ["network-programming"]
 publish = ["forgejo-code-rust"]
+repository = "https://github.com/C0D3-M4513R/network-handler"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [badges]
