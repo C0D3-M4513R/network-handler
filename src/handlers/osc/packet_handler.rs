@@ -35,7 +35,7 @@ impl<O, H: for<'a> ArbitraryHandler<&'a [&'a rosc::OscMessage], Output = O>> Pac
 
         let mut msgs = crate::Vec::new();
         let mut bundles = crate::Vec::new();
-        let mut content = crate::vec!(&bundle.content);
+        let mut content = alloc::vec!(&bundle.content);
         while let Some(bundle) = content.pop() {
             msgs.clear();
             msgs.reserve(bundle.len());
@@ -91,7 +91,7 @@ impl<O, H: for<'a> ArbitraryHandler<&'a [&'a rosc::OscMessage], Output = O>> Arb
             rosc::OscPacket::Message(msg) => {
                 #[cfg(all(debug_assertions, feature = "debug_log"))]
                 log::trace!("Got a OSC Packet: {}: {:?}", msg.addr, msg.args);
-                Ok(crate::vec![self.handler.handle(&[msg])])
+                Ok(alloc::vec![self.handler.handle(&[msg])])
             }
             rosc::OscPacket::Bundle(bundle) => {
                 self.apply_bundle(bundle)
