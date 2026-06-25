@@ -1,6 +1,6 @@
 [package]
 name = "network-handler"
-version = "0.1.2"
+version = "0.1.3"
 edition = "2021"
 categories = ["network-programming"]
 publish = ["forgejo-code-rust"]

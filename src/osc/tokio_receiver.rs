@@ -80,7 +80,6 @@ impl<
     H2:ArbitraryHandler<rosc::OscPacket> + PeriodicParsingCheck + Sync + Send + 'static,
     H3:for<'a> crate::ArbitraryHandler<&'a [u8], Output = O3> + PeriodicParsingCheck + Sync + Send + 'static,
 > OscReceiver<H1, H2, H3> {
-    #[deprecated(since = "0.1.2", note = "Please use `listen_v2` instead")]
     pub fn listen<
         CheckFut:core::future::Future<Output = ()> + Send,
         Fut:core::future::Future<Output = ()> + Send,
