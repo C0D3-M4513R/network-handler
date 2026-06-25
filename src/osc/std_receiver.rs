@@ -43,14 +43,32 @@ impl<I1, I2, I3> OscReceiver<I1, I2, I3> {
             }
         };
         log::info!("Bound OSC UDP receive Socket.");
-        Ok(Self{
+        Ok(Self::new_with_socket(
             osc_recv,
+            max_message_size,
+            poll_duration,
+            message_handlers,
+            packet_handlers,
+            raw_packet_handlers,
+        ))
+    }
+    /// Creates a new OSC Sender from an already bound socket
+    pub fn new_with_socket(
+        socket:UdpSocket,
+        max_message_size: Option<NonZeroUsize>,
+        poll_duration: Option<Duration>,
+        message_handlers: I1,
+        packet_handlers: I2,
+        raw_packet_handlers: I3,
+    ) -> Self{
+        Self{
+            osc_recv: socket,
             max_message_size,
             poll_duration: poll_duration.unwrap_or(Duration::from_secs(1)),
             message_handlers,
             packet_handlers,
             raw_packet_handlers,
-        })
+        }
     }
 }
 
@@ -72,18 +90,11 @@ impl<
     >(
         self,
         mut check_handler: impl FnMut(
-            (H3::CheckOutput, (Vec<Vec<O1>>, H2::CheckOutput)),
+            <Handler<H1, H2, H3> as PeriodicParsingCheck>::CheckOutput,
             Arc<Mutex<Handler<H1, H2, H3>>>,
         ) + Send + 'static,
-        mut packet_handler: impl FnMut((
-            O3,
-            Vec<Result<
-                (
-                    <PacketHandler::<H1> as ArbitraryHandler<&'_ rosc::OscPacket>>::Output,
-                    H2::Output
-                ),
-                rosc::OscError
-            >>),
+        mut packet_handler: impl FnMut(
+            <Handler<H1, H2, H3> as ArbitraryHandler<&[u8]>>::Output,
             Arc<Mutex<Handler<H1, H2, H3>>>,
         ) -> Iter + Send + 'static,
     ) -> OutThreads {

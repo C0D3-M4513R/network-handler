@@ -20,9 +20,15 @@ impl<H> BufferedRawPacketHandler<H> {
             handler 
         }
     }
+    #[inline]
+    pub const fn get_max_buffer_size(&self) -> Option<NonZeroUsize> {
+        self.max_buffer_size
+    }
+    #[inline]
     pub const fn get_buffer(&self) -> &crate::Vec<u8> {
         &self.buffer
     }
+    #[inline]
     pub fn clear_buffer(&mut self) {
         self.buffer.clear();
     }

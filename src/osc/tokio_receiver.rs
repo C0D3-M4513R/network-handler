@@ -80,6 +80,7 @@ impl<
     H2:ArbitraryHandler<rosc::OscPacket> + PeriodicParsingCheck + Sync + Send + 'static,
     H3:for<'a> crate::ArbitraryHandler<&'a [u8], Output = O3> + PeriodicParsingCheck + Sync + Send + 'static,
 > OscReceiver<H1, H2, H3> {
+    #[deprecated(since = "0.1.2", note = "Please use `listen_v2` instead")]
     pub fn listen<
         CheckFut:core::future::Future<Output = ()> + Send,
         Fut:core::future::Future<Output = ()> + Send,
@@ -88,18 +89,11 @@ impl<
         self,
         js: &mut tokio::task::JoinSet<Infallible>,
         mut check_handler: impl FnMut(
-            (H3::CheckOutput, (Vec<Vec<O1>>, H2::CheckOutput)),
+            <Handler<H1, H2, H3> as PeriodicParsingCheck>::CheckOutput,
             &'_ mut Handler<H1, H2, H3>,
         ) -> CheckFut + Send + 'static,
-        mut packet_handler: impl FnMut((
-            O3,
-            Vec<Result<
-                (
-                    <PacketHandler::<H1> as crate::ArbitraryHandler<&'_ rosc::OscPacket>>::Output,
-                    H2::Output
-                ),
-                rosc::OscError
-            >>),
+        mut packet_handler: impl FnMut(
+            <Handler<H1, H2, H3> as ArbitraryHandler<&[u8]>>::Output,
             &'_ mut Handler<H1, H2, H3>,
         ) -> (Iter, Fut) + Send + 'static,
     ) {
