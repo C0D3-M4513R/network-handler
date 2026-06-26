@@ -18,12 +18,12 @@ impl<I, H: ArbitraryHandler<rosc::OscPacket, I> + crate::PeriodicParsingCheck> c
     type Output = Result<H::Output, rosc::OscError>;
 
     fn handle<'a>(&mut self, message: &'a [u8], extra_info: I) -> (&'a [u8], Self::Output) {
-        #[cfg(all(debug_assertions, feature="debug_log"))]
+        #[cfg(feature="debug_log")]
         log::trace!("Received UDP Packet with size {} ",message.len());
         match rosc::decoder::decode_udp(message) {
             Err(e) => {
                 log::error!("Error decoding udp packet into an OSC Packet: {}", e);
-                #[cfg(all(debug_assertions, feature="debug_log"))]
+                #[cfg(feature="debug_log")]
                 log::trace!("Packet contents were: {:#X?}",message);
                 (message, Err(e))
             }

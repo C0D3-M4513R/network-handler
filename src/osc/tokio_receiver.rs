@@ -74,28 +74,32 @@ impl<I1, I2, I3> OscReceiver<I1, I2, I3> {
     }
 }
 
-type Handler<'a,H1,H2,H3> = CombinedHandler<H3, BufferedRawPacketHandler<OscRawPacketHandler<CombinedRefHandler<CloneInfo<PacketHandler<H1, core::net::SocketAddr>>, H2>>>>;
+type Handler<'a,H1,H2,H3, I> = CombinedHandler<H3, BufferedRawPacketHandler<OscRawPacketHandler<CombinedRefHandler<CloneInfo<PacketHandler<H1, I>>, H2>>>>;
+OscReceiver_listen!(listen, core::net::SocketAddr, tokio::net::UdpSocket::recv_buf_from, core::convert::identity);
+OscReceiver_listen!(listen_recv, &'static str, tokio::net::UdpSocket::recv_buf, |v:Result<usize, std::io::Error>|v.map(|v|(v, "")));
+macro_rules! OscReceiver_listen {
+    ($name: ident, $ty:ty, $listen:expr, $listen_post:expr) => {
 impl<
     O1, O3,
-    H1:for<'a> ArbitraryHandler<&'a [&'a rosc::OscMessage], core::net::SocketAddr, Output =O1> + Sync + Send + 'static,
-    H2:ArbitraryHandler<rosc::OscPacket, core::net::SocketAddr> + PeriodicParsingCheck + Sync + Send + 'static,
-    H3:for<'a> crate::ArbitraryHandler<&'a [u8], core::net::SocketAddr, Output = O3> + PeriodicParsingCheck + Sync + Send + 'static,
+    H1:for<'a> ArbitraryHandler<&'a [&'a rosc::OscMessage], $ty, Output =O1> + Sync + Send + 'static,
+    H2:ArbitraryHandler<rosc::OscPacket, $ty> + PeriodicParsingCheck + Sync + Send + 'static,
+    H3:for<'a> crate::ArbitraryHandler<&'a [u8], $ty, Output = O3> + PeriodicParsingCheck + Sync + Send + 'static,
 > OscReceiver<H1, H2, H3> {
-    pub fn listen<
+    pub fn $name<
         CheckFut:core::future::Future<Output = ()> + Send,
         Fut:core::future::Future<Output = ()> + Send,
-        Iter: Iterator<Item = rosc::OscError> + Send
+        Iter: Iterator<Item = rosc::OscError> + Send,
     >(
         self,
         js: &mut tokio::task::JoinSet<Infallible>,
         mut check_handler: impl FnMut(
-            <Handler<'_, H1, H2, H3> as PeriodicParsingCheck>::CheckOutput,
-            &'_ mut Handler<'_,H1, H2, H3>,
+            <Handler<'_, H1, H2, H3, $ty> as PeriodicParsingCheck>::CheckOutput,
+            &'_ mut Handler<'_,H1, H2, H3, $ty>,
         ) -> CheckFut + Send + 'static,
         mut packet_handler: impl FnMut(
-            <Handler<'_, H1, H2, H3> as ArbitraryHandler<&[u8], core::net::SocketAddr>>::Output,
-            &'_ mut Handler<'_, H1, H2, H3>,
-            core::net::SocketAddr,
+            <Handler<'_, H1, H2, H3, $ty> as ArbitraryHandler<&[u8], $ty>>::Output,
+            &'_ mut Handler<'_, H1, H2, H3, $ty>,
+            $ty,
         ) -> (Iter, Fut) + Send + 'static,
     ) {
         let Self {
@@ -138,14 +142,22 @@ impl<
                     _ = periodic.tick(), if handler.needs_check() => {
                         check_handler(handler.check(), &mut handler).await;
                     },
-                    out = osc_recv.recv_buf_from(&mut buf) => {
+                    out = $listen(&osc_recv, &mut buf) => {
+                        let out = $listen_post(out);
                         match out {
                             Err(e) => {
                                 log::error!("Error receiving udp packet. Discarding receive Buffer. Skipping Packet: {}",e);
                                 buf.clear();
                             }
-                            Ok((_, addr)) => {
-                                let (iter, fut) = packet_handler(<Handler<H1, H2, H3> as ArbitraryHandler<&[u8], core::net::SocketAddr>>::handle(&mut handler, buf.as_slice(), addr), &mut handler, addr);
+                            Ok((size, addr)) => {
+                                #[cfg(feature = "debug_log")]
+                                {
+                                    log::debug!("Received a Packet with {size} bytes and info: {addr}");
+                                }
+                                if size != buf.len() {
+                                    log::warn!("Read bytes from packet with info {addr} has a mismatched buffer size. {size} bytes were supposedly read, but the buffer contains {} bytes", buf.len());
+                                }
+                                let (iter, fut) = packet_handler(<Handler<H1, H2, H3, $ty> as ArbitraryHandler<&[u8], $ty>>::handle(&mut handler, buf.as_slice(), addr), &mut handler, addr);
                                 fut.await;
 
                                 for e in iter{
@@ -182,3 +194,6 @@ impl<
         });
     }
 }
+    };
+}
+use OscReceiver_listen;

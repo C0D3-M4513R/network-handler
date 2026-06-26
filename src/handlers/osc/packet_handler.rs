@@ -89,7 +89,7 @@ impl<O, I:Clone, H: for<'a> ArbitraryHandler<&'a [&'a rosc::OscMessage], I, Outp
     fn handle(&mut self, message: &rosc::OscPacket, extra_info: I) -> Self::Output {
         match message {
             rosc::OscPacket::Message(msg) => {
-                #[cfg(all(debug_assertions, feature = "debug_log"))]
+                #[cfg(feature = "debug_log")]
                 log::trace!("Got a OSC Packet: {}: {:?}", msg.addr, msg.args);
                 Ok(alloc::vec![self.handler.handle(&[msg], extra_info)])
             }
