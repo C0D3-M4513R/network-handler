@@ -1,0 +1,26 @@
+[package]
+name = "network-handler-listener-osc-tokio"
+version = "0.1.0"
+edition = "2024"
+categories = ["network-programming"]
+publish = ["forgejo-code-rust"]
+repository = "https://github.com/C0D3-M4513R/network-handler"
+
+[dependencies]
+network-handler = {workspace = true, features = ["osc"]}
+rosc = {version = "0.11.4", default-features = false}
+nom = {version = "7", default-features = false}
+#We allow an async handler function.
+tokio =  { version = "1", features = [
+    "rt", #JoinSet
+    "net", #UDP Sockets
+    "sync", #oneshot channel
+    "io-util", #recv_buf for udp sockets
+    "time", #time
+    "macros", #select
+]}
+log = "0.4.33"
+
+
+[features]
+debug_log = []

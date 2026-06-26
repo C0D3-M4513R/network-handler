@@ -1,11 +1,10 @@
-#![cfg_attr(not(feature = "tokio"), no_std)]
+#![no_std]
 
+#[cfg(feature = "alloc")]
 extern crate alloc;
-pub(crate) use alloc::{vec::Vec, boxed::Box};
 
 pub mod handlers;
 
-pub mod osc;
 
 ///Handle the processing of a particular type
 pub trait ArbitraryHandler<T, I>{

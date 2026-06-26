@@ -19,7 +19,7 @@ impl<I, H: ArbitraryHandler<rosc::OscPacket, I> + crate::PeriodicParsingCheck> c
 
     fn handle<'a>(&mut self, message: &'a [u8], extra_info: I) -> (&'a [u8], Self::Output) {
         #[cfg(feature="debug_log")]
-        log::trace!("Received UDP Packet with size {} ",message.len());
+        log::debug!("Received UDP Packet with size {} ",message.len());
         match rosc::decoder::decode_udp(message) {
             Err(e) => {
                 log::error!("Error decoding udp packet into an OSC Packet: {}", e);
@@ -28,6 +28,8 @@ impl<I, H: ArbitraryHandler<rosc::OscPacket, I> + crate::PeriodicParsingCheck> c
                 (message, Err(e))
             }
             Ok((rest, packet)) => {
+                #[cfg(feature="debug_log")]
+                log::debug!("Received UDP Packet with size {}: {packet:?}",message.len());
                 let fut = self.handler.handle(packet, extra_info);
                 (rest, Ok(fut))
             },

@@ -27,14 +27,14 @@ impl<H, I> PacketHandler<H, I> {
     }
 }
 impl<O, I: Clone, H: for<'a> ArbitraryHandler<&'a [&'a rosc::OscMessage], I, Output = O>> PacketHandler<H, I> {
-    fn apply_bundle(&mut self, bundle: &rosc::OscBundle, extra_info: &I) -> Result<crate::Vec<O>, time::UtcDateTime> {
+    fn apply_bundle(&mut self, bundle: &rosc::OscBundle, extra_info: &I) -> Result<alloc::vec::Vec<O>, time::UtcDateTime> {
         let bundle = match self.should_handle_bundle(bundle, &extra_info) {
             Ok(bundle) => bundle,
             Err(date_time) => return Err(date_time),
         };
 
-        let mut msgs = crate::Vec::new();
-        let mut bundles = crate::Vec::new();
+        let mut msgs = alloc::vec::Vec::new();
+        let mut bundles = alloc::vec::Vec::new();
         let mut content = alloc::vec!(&bundle.content);
         while let Some(bundle) = content.pop() {
             msgs.clear();
@@ -85,7 +85,7 @@ impl<O, I: Clone, H: for<'a> ArbitraryHandler<&'a [&'a rosc::OscMessage], I, Out
 }
 
 impl<O, I:Clone, H: for<'a> ArbitraryHandler<&'a [&'a rosc::OscMessage], I, Output = O>> ArbitraryHandler<&rosc::OscPacket, I> for PacketHandler<H, I> {
-    type Output = Result<crate::Vec<O>, time::UtcDateTime>;
+    type Output = Result<alloc::vec::Vec<O>, time::UtcDateTime>;
     fn handle(&mut self, message: &rosc::OscPacket, extra_info: I) -> Self::Output {
         match message {
             rosc::OscPacket::Message(msg) => {
@@ -100,7 +100,7 @@ impl<O, I:Clone, H: for<'a> ArbitraryHandler<&'a [&'a rosc::OscMessage], I, Outp
     }
 }
 impl<O, I:Clone, H: for<'a> ArbitraryHandler<&'a [&'a rosc::OscMessage], I, Output = O>> crate::PeriodicParsingCheck for PacketHandler<H, I> {
-    type CheckOutput = Vec<(Vec<O>, I)>;
+    type CheckOutput = alloc::vec::Vec<(alloc::vec::Vec<O>, I)>;
     fn needs_check(&self) -> bool { !self.bundle_buf.is_empty() }
     fn check(&mut self) -> Self::CheckOutput {
         let now = time::UtcDateTime::now();
@@ -112,10 +112,10 @@ impl<O, I:Clone, H: for<'a> ArbitraryHandler<&'a [&'a rosc::OscMessage], I, Outp
                 // run the destructor of the drain and to copy the elements we need out
                 // (as they could otherwise be overridden I think).
                 // Also this scoping allows us to unlock the mutex earlier.
-                .collect::<crate::Vec<_>>()
+                .collect::<alloc::vec::Vec<_>>()
         };
 
-        let mut res = crate::Vec::with_capacity(to_apply.len());
+        let mut res = alloc::vec::Vec::with_capacity(to_apply.len());
         for i in to_apply {
             match self.apply_bundle(&i.value.0, &i.value.1) {
                 Err(_) => continue,

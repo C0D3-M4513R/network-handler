@@ -1,0 +1,13 @@
+[package]
+name = "network-handler-listener-osc-std"
+version = "0.1.0"
+edition = "2024"
+categories = ["network-programming"]
+publish = ["forgejo-code-rust"]
+repository = "https://github.com/C0D3-M4513R/network-handler"
+
+[dependencies]
+log = "0.4.33"
+network-handler = {workspace = true, features = ["osc"]}
+nom = {version = "7", default-features = false}
+rosc = {version = "0.11.4", default-features = false}

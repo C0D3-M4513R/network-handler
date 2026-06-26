@@ -1,22 +1,20 @@
-#![cfg(feature = "std")]
-
 use core::net::IpAddr;
 use core::time::Duration;
 use core::num::NonZeroUsize;
 use std::net::UdpSocket;
 use std::sync::{Arc, Mutex};
-use crate::{ArbitraryHandler, PeriodicParsingCheck};
-use crate::handlers::osc::raw_packet_handler::RawPacketHandler;
-use crate::handlers::buffered_raw_packet_handler::BufferedRawPacketHandler;
-use crate::handlers::clone_info::CloneInfo;
-use crate::handlers::combined_handler::{CombinedHandler, CombinedRefHandler};
-use crate::handlers::osc::packet_handler::PacketHandler;
+use network_handler::{ArbitraryHandler, PeriodicParsingCheck};
+use network_handler::handlers::osc::raw_packet_handler::RawPacketHandler;
+use network_handler::handlers::buffered_raw_packet_handler::BufferedRawPacketHandler;
+use network_handler::handlers::clone_info::CloneInfo;
+use network_handler::handlers::combined_handler::{CombinedHandler, CombinedRefHandler};
+use network_handler::handlers::osc::packet_handler::PacketHandler;
 
 const DEFAULT_ALLOC:usize = 1024;
 
 ///Allows for sending OSC Messages
 pub struct OscReceiver<I1, I2, I3> {
-    osc_recv:UdpSocket,
+    osc_recv:Arc<UdpSocket>,
     max_message_size: Option<NonZeroUsize>,
     poll_duration: Duration,
     message_handlers: I1,
@@ -44,7 +42,7 @@ impl<I1, I2, I3> OscReceiver<I1, I2, I3> {
             }
         };
         log::info!("Bound OSC UDP receive Socket.");
-        Ok(Self::new_with_socket(
+        Ok(Self::new_with_arc_socket(
             osc_recv,
             max_message_size,
             poll_duration,
@@ -54,7 +52,7 @@ impl<I1, I2, I3> OscReceiver<I1, I2, I3> {
         ))
     }
     /// Creates a new OSC Sender from an already bound socket
-    pub fn new_with_socket(
+    pub fn new_with_arc_socket(
         socket:UdpSocket,
         max_message_size: Option<NonZeroUsize>,
         poll_duration: Option<Duration>,
@@ -63,7 +61,7 @@ impl<I1, I2, I3> OscReceiver<I1, I2, I3> {
         raw_packet_handlers: I3,
     ) -> Self{
         Self{
-            osc_recv: socket,
+            osc_recv: Arc::new(socket),
             max_message_size,
             poll_duration: poll_duration.unwrap_or(Duration::from_secs(1)),
             message_handlers,

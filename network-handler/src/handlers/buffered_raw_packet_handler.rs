@@ -1,11 +1,12 @@
+#![cfg(feature = "alloc")]
 use core::num::NonZeroUsize;
 use crate::ArbitraryHandler;
 
 ///Wraps a [crate::RawPacketHandler] into a [crate::BufferedRawPacketHandler]
 #[derive(Debug)]
 pub struct BufferedRawPacketHandler<H> {
-    prev_buffer: crate::Vec<u8>, //Temp buffer to store the leftover of the last parse
-    buffer: crate::Vec<u8>,
+    prev_buffer: alloc::vec::Vec<u8>, //Temp buffer to store the leftover of the last parse
+    buffer: alloc::vec::Vec<u8>,
     max_buffer_size: Option<NonZeroUsize>,
     pub handler: H
 }
@@ -14,8 +15,8 @@ impl<H> BufferedRawPacketHandler<H> {
     /// Create a new instance of a [BufferedRawPacketHandler]
     pub const fn new(handler: H, max_buffer_size: Option<NonZeroUsize>,) -> Self {
         Self {
-            prev_buffer: crate::Vec::new(),
-            buffer: crate::Vec::new(),
+            prev_buffer: alloc::vec::Vec::new(),
+            buffer: alloc::vec::Vec::new(),
             max_buffer_size,
             handler 
         }
@@ -25,7 +26,7 @@ impl<H> BufferedRawPacketHandler<H> {
         self.max_buffer_size
     }
     #[inline]
-    pub const fn get_buffer(&self) -> &crate::Vec<u8> {
+    pub const fn get_buffer(&self) -> &alloc::vec::Vec<u8> {
         &self.buffer
     }
     #[inline]
@@ -35,13 +36,13 @@ impl<H> BufferedRawPacketHandler<H> {
 }
 
 impl<I:Clone, H: crate::RawPacketHandler<I>> ArbitraryHandler<&'_ [u8], I> for BufferedRawPacketHandler<H> {
-    type Output = crate::Vec<H::Output>;
+    type Output = alloc::vec::Vec<H::Output>;
 
     fn handle(&mut self, message: &'_ [u8], extra_info: I) -> Self::Output {
         self.prev_buffer.clear();
         self.buffer.extend_from_slice(message);
         let mut buf = self.buffer.as_slice();
-        let mut res = crate::Vec::new();
+        let mut res = alloc::vec::Vec::new();
         loop {
             let (r, fut) = self.handler.handle(buf, extra_info.clone());
             res.push(fut);
